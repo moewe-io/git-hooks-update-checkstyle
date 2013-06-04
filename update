@@ -38,7 +38,7 @@ git diff-tree --no-commit-id -r $oldrev $newrev | while read -r line;
     commit_parameters=($line)
     if [ "${commit_parameters[4]}" != "D" ]; then
        if [ "${commit_parameters[5]: -5}" == ".java" ]; then
-          echo "    Found file ${commit_parameters[5]} in revision ${commit_parameters[3]}"
+          echo "Found file ${commit_parameters[5]} in revision ${commit_parameters[3]}"
           temp_file=$TEMP_BASE_PATH/$newrev/${commit_parameters[3]}/${commit_parameters[5]}
           mkdir -p $(dirname $temp_file)
           git show $newrev:${commit_parameters[5]} > $temp_file
@@ -46,11 +46,22 @@ git diff-tree --no-commit-id -r $oldrev $newrev | while read -r line;
     fi
   done
 
-$CHECKSTYLE_COMMAND -r $TEMP_BASE_PATH/$newrev
+$CHECKSTYLE_COMMAND -r $TEMP_BASE_PATH/$newrev | grep -v "Starting audit" | grep -v "Audit done" > $TEMP_BASE_PATH/checkstyle-$newrev.log
+
+checkstyle_error_count=$(wc -l < $TEMP_BASE_PATH/checkstyle-$newrev.log)
+if [ $checkstyle_error_count -gt 0 ]; then
+    echo " "
+    echo "There was/where $checkstyle_error_count checkstyle error(s), please review and fix them:"
+    echo " "
+    sed 's|'$TEMP_BASE_PATH/$newrev'||g' < $TEMP_BASE_PATH/checkstyle-$newrev.log
+    echo " "
+    exit 1
+fi
 
 rm -r $TEMP_BASE_PATH/$newrev
+rm $TEMP_BASE_PATH/checkstyle-$newrev.log
 
 echo " "
 echo "Done. Thanks for your patience."
 echo " "
-exit 1
+exit 0
