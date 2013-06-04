@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# This is an example for a Git Checkstyle "update" hook
+#
+# Author: Adrian Mörchen (http://www.githost.de)
+#
+# Inspired by (Thank you all!):
+# 	* https://gist.github.com/davetron5000/37350
+#      * https://gist.github.com/caniszczyk/1327469
+#      * http://bluec0re.blogspot.de/2012/05/git-pre-receive-hook-with-checkstyle.html
+#      * http://ncona.com/2013/01/git-hook-to-run-code-static-analysis/
+#      * and a lot of Google and SO search
+#
+
+# Configure your environment here
+
+CHECKSTYLE_EXEC="/opt/git/checkstyle-test.git/hooks/checkstyle-5.6/checkstyle-5.6-all.jar"
+CHECKSTYLE_CONFIG="/opt/git/checkstyle-test.git/hooks/checkstyle.xml"
+CHECKSTYLE_COMMAND="java -jar $CHECKSTYLE_EXEC -f plain -c $CHECKSTYLE_CONFIG"
+
+TEMP_BASE_PATH=/tmp/git-checkstyle-hook
+
+echo " "
+echo "Checking your style. Please wait..."
+echo " "
+
+refname=$1 
+oldrev=$(git rev-parse $2)
+newrev=$(git rev-parse $3)
+
+# echo "$oldrev $newrev $refname"	    
+mkdir -p $TEMP_BASE_PATH/$newrev
+           
+git diff-tree --no-commit-id -r $oldrev $newrev | while read -r line; 
+  do
+    # Example of line: :000000 100644 0000000000000000000000000000000000000000 af7077beb4e7ef5323e231c3c585a41938a73767 A test.txt
+    line=$(echo $line | tr ":" " ")
+    commit_parameters=($line)
+    if [ "${commit_parameters[4]}" != "D" ]; then
+       if [ "${commit_parameters[5]: -5}" == ".java" ]; then
+          echo "    Found file ${commit_parameters[5]} in revision ${commit_parameters[3]}"
+          temp_file=$TEMP_BASE_PATH/$newrev/${commit_parameters[3]}/${commit_parameters[5]}
+          mkdir -p $(dirname $temp_file)
+          git show $newrev:${commit_parameters[5]} > $temp_file
+	fi
+    fi
+  done
+
+$CHECKSTYLE_COMMAND -r $TEMP_BASE_PATH/$newrev
+
+rm -r $TEMP_BASE_PATH/$newrev
+
+echo " "
+echo "Done. Thanks for your patience."
+echo " "
+exit 1
