@@ -5,20 +5,21 @@
 # Author: Adrian Mörchen (http://www.githost.de)
 #
 # Inspired by (Thank you all!):
+#   * Our old SVN Checkstyle Hook
 # 	* https://gist.github.com/davetron5000/37350
-#      * https://gist.github.com/caniszczyk/1327469
-#      * http://bluec0re.blogspot.de/2012/05/git-pre-receive-hook-with-checkstyle.html
-#      * http://ncona.com/2013/01/git-hook-to-run-code-static-analysis/
-#      * and a lot of Google and SO search
+#   * https://gist.github.com/caniszczyk/1327469
+#   * http://bluec0re.blogspot.de/2012/05/git-pre-receive-hook-with-checkstyle.html
+#   * http://ncona.com/2013/01/git-hook-to-run-code-static-analysis/
+#   * and a lot of Google and SO search
 #
 
 # Configure your environment here
 
-CHECKSTYLE_EXEC="/opt/git/checkstyle-test.git/hooks/checkstyle-5.6/checkstyle-5.6-all.jar"
-CHECKSTYLE_CONFIG="/opt/git/checkstyle-test.git/hooks/checkstyle.xml"
-CHECKSTYLE_COMMAND="java -jar $CHECKSTYLE_EXEC -f plain -c $CHECKSTYLE_CONFIG"
+CHECKSTYLE_EXEC="D:/Programme/atlassian-stash-2.2.0/stash-home/data/repositories/1/hooks/checkstyle-5.6/checkstyle-5.6-all.jar"
+CHECKSTYLE_CONFIG="D:/Programme/atlassian-stash-2.2.0/stash-home/data/repositories/1/hooks/checkstyle.xml"
 
-TEMP_BASE_PATH=/tmp/git-checkstyle-hook
+CHECKSTYLE_COMMAND="java -jar $CHECKSTYLE_EXEC -f plain -c $CHECKSTYLE_CONFIG"
+TEMP_BASE_PATH=tmp-checkstyle-hook
 
 echo " "
 echo "Checking your style. Please wait..."
@@ -27,41 +28,48 @@ echo " "
 refname=$1 
 oldrev=$(git rev-parse $2)
 newrev=$(git rev-parse $3)
-
+exit_result=0
 # echo "$oldrev $newrev $refname"	    
 mkdir -p $TEMP_BASE_PATH/$newrev
-           
+mkdir -p $TEMP_BASE_PATH/results
+          
 git diff-tree --no-commit-id -r $oldrev $newrev | while read -r line; 
   do
     # Example of line: :000000 100644 0000000000000000000000000000000000000000 af7077beb4e7ef5323e231c3c585a41938a73767 A test.txt
     line=$(echo $line | tr ":" " ")
     commit_parameters=($line)
     if [ "${commit_parameters[4]}" != "D" ]; then
-       if [ "${commit_parameters[5]: -5}" == ".java" ]; then
-          echo "Found file ${commit_parameters[5]} in revision ${commit_parameters[3]}"
-          temp_file=$TEMP_BASE_PATH/$newrev/${commit_parameters[3]}/${commit_parameters[5]}
-          mkdir -p $(dirname $temp_file)
-          git show $newrev:${commit_parameters[5]} > $temp_file
-	fi
+		if [ "${commit_parameters[5]: -5}" == ".java" ]; then
+			# echo "Found file ${commit_parameters[5]} in revision ${commit_parameters[3]}"
+			temp_file=$TEMP_BASE_PATH/$newrev/${commit_parameters[3]}/${commit_parameters[5]}
+			mkdir -p $(dirname $temp_file)
+			git show $newrev:${commit_parameters[5]} > $temp_file
+			$CHECKSTYLE_COMMAND $temp_file | grep -v "Starting audit" | grep -v "Audit done" > $TEMP_BASE_PATH/results/${commit_parameters[5]}_new.log
+			if [ -f $TEMP_BASE_PATH/results/${commit_parameters[5]}_old.log ]; then
+				checkstyle_old_count=$(wc -l < $TEMP_BASE_PATH/results/${commit_parameters[5]}_old.log)
+			else
+				checkstyle_old_count=0
+			fi 		  
+			checkstyle_new_count=$(wc -l < $TEMP_BASE_PATH/results/${commit_parameters[5]}_new.log)
+			if [ $checkstyle_new_count -gt $checkstyle_old_count ]; then
+				echo " "
+				echo "${commit_parameters[5]}: There was/where $checkstyle_new_count checkstyle error(s) (old $checkstyle_old_count), please review and fix them:"
+				echo " "
+				sed 's|'$TEMP_BASE_PATH/$newrev'||g' < $TEMP_BASE_PATH/results/${commit_parameters[5]}_new.log
+				echo " "
+				exit_result=1
+			fi
+			if [ -f $TEMP_BASE_PATH/results/${commit_parameters[5]}_old.log ]; then
+				rm $TEMP_BASE_PATH/results/${commit_parameters[5]}_old.log
+			fi
+			mv $TEMP_BASE_PATH/results/${commit_parameters[5]}_new.log $TEMP_BASE_PATH/results/${commit_parameters[5]}_old.log
+		fi
     fi
   done
 
-$CHECKSTYLE_COMMAND -r $TEMP_BASE_PATH/$newrev | grep -v "Starting audit" | grep -v "Audit done" > $TEMP_BASE_PATH/checkstyle-$newrev.log
-
-checkstyle_error_count=$(wc -l < $TEMP_BASE_PATH/checkstyle-$newrev.log)
-if [ $checkstyle_error_count -gt 0 ]; then
-    echo " "
-    echo "There was/where $checkstyle_error_count checkstyle error(s), please review and fix them:"
-    echo " "
-    sed 's|'$TEMP_BASE_PATH/$newrev'||g' < $TEMP_BASE_PATH/checkstyle-$newrev.log
-    echo " "
-    exit 1
-fi
-
 rm -r $TEMP_BASE_PATH/$newrev
-rm $TEMP_BASE_PATH/checkstyle-$newrev.log
 
 echo " "
-echo "Done. Thanks for your patience."
+echo "Done. Thanks for your patience. $exit_result"
 echo " "
-exit 0
+exit $exit_result
