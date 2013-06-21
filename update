@@ -1,8 +1,8 @@
-#!/bin/bash
+﻿#!/bin/bash
 #
 # This is an example for a Git Checkstyle "update" hook
 #
-# Author: Adrian M�rchen
+# Author: Adrian Mörchen
 #
 # Inspired by (Thank you all!):
 #   * Our old SVN Checkstyle Hook for Communote (http://www.communote.com)
