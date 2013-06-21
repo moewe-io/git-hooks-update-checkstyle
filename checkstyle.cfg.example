@@ -1,0 +1,12 @@
+# Configure your environment here
+
+CHECKSTYLE_EXEC="D:/Programme/atlassian-stash-2.2.0/stash-home/data/repositories/1/hooks/checkstyle-5.6/checkstyle-5.6-all.jar"
+CHECKSTYLE_CONFIG="D:/Programme/atlassian-stash-2.2.0/stash-home/data/repositories/1/hooks/checkstyle.xml"
+
+# The following lines should typically not be updated.
+
+CHECKSTYLE_COMMAND="java -jar $CHECKSTYLE_EXEC -f plain -c $CHECKSTYLE_CONFIG"
+TEMP_BASE_PATH=tmp-checkstyle-hook
+
+# Allow "unknown" files to have at max. 5 checkstyle errors. We need this limit for legacy reason.
+NO_OLD_FILE_ALLOWED_ERRORS=5
